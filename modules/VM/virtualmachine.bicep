@@ -28,7 +28,7 @@ resource vmwireguard 'Microsoft.Compute/virtualMachines@2021-07-01' = {
         ssh: {
           publicKeys: [
             {
-              path: '/home/manuel/.ssh/authorized_keys'
+              path: '/home/${vm_admin_name}/.ssh/authorized_keys'
               keyData: publicKey
             }
           ]

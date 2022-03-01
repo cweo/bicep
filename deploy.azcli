@@ -1,4 +1,4 @@
-baseline='mdgcorp'
+baseline='jabcorp'
 location='switzerlandnorth'
 pubkeydata=$(cat ~/.ssh/id_rsa.pub)
 local_public_ip=$(curl ifconfig.me)
@@ -12,7 +12,7 @@ az deployment sub create -n "$baseline-main" -l $location -f main.bicep \
     --parameters local_public_ip="$local_public_ip" \
     --parameters vm_admin_name="$vm_admin_name" \
     --parameters user_object_id="$user_object_id" \
-    --parameters aadGroupdIds='["e822cf30-7f5e-4968-a215-5cc48d538580"]'
+    --parameters aadGroupdIds='["fae8ce4a-e25d-4c8b-87d4-b3b2b1f30a0f"]'
 
 # Attach ACR, grab the ACR name
 #az aks update -n $baseline'aks' -g $baseline --attach-acr 'el66c3427w4aeacr'

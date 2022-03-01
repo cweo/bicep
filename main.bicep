@@ -236,3 +236,21 @@ module synapsedeploy 'modules/synapse/workspace.bicep' = {
     userObjectId: user_object_id
   }
 }
+
+
+resource pvtdnsSTAZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
+  name: 'privatelink.${deployment().location}.azsta.io'
+  scope: resourceGroup(rg.name)
+}
+
+module policyDeploy 'modules/governance/storageaccountpDNSzone.bicep' = {
+  name: 'policyDeploy'
+  scope: resourceGroup(rg.name)
+  params: {
+    policyName: 'policyDeploy'
+  }
+  
+  dependsOn: [
+    rg
+  ]
+}

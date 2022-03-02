@@ -72,6 +72,7 @@ module vnetsandbox 'modules/vnet/vnet.bicep' = {
       {
         properties: {
           addressPrefix: '10.0.235.32/27'
+          privateEndpointNetworkPolicies: 'Disabled'
           networkSecurityGroup: {
             id: nsginternal.outputs.nsginternalId
           }
@@ -237,20 +238,145 @@ module synapsedeploy 'modules/synapse/workspace.bicep' = {
   }
 }
 
+param blobprivatelinkDNSZoneName string = 'privatelink.blob.core.windows.net'
 
-resource pvtdnsSTAZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
-  name: 'privatelink.${deployment().location}.azsta.io'
-  scope: resourceGroup(rg.name)
-}
 
-module policyDeploy 'modules/governance/storageaccountpDNSzone.bicep' = {
-  name: 'policyDeploy'
+module privatednsBlobWindowsCoreNet 'modules/vnet/privatednszone.bicep' = {
   scope: resourceGroup(rg.name)
+  name: 'privatednsBlobWindowsCoreNet'
   params: {
-    policyName: 'policyDeploy'
+    privateDNSZoneName: blobprivatelinkDNSZoneName
   }
-  
   dependsOn: [
     rg
   ]
 }
+
+
+param policyName string = 'storageAccountpDNSzone'
+
+module policyDeploy 'modules/governance/policies/storageaccountpDNSzone.bicep' = {
+  name: policyName
+  params: {
+    policyName: policyName
+  }
+  dependsOn: [
+    rg
+  ]
+}
+
+
+// param customPolicyDefinitionId string = 
+param deployPEStorageAccountDefinitionID string = '/providers/Microsoft.Authorization/policyDefinitions/9f766f00-8d11-464e-80e1-4091d7874074'
+param subnettarget string = 'internal'
+
+
+param PDNSContributorGuid string = guid('PDNSContributor')
+param NetworkContributorGuidPE string = guid('NetworkContributorPE')
+param NetworkContributorGuidCA string = guid('NetworkContributorCA')
+param StorageAccountContributorGuid string = guid('StorageAccountContributor')
+
+
+
+var PDNSContributor = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b12aa53e-6015-4669-85d0-8515ebb3ae7f'
+var NetworkContributor = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/4d97b98b-1d4f-4787-a291-c67834d212e7'
+var StorageAccountContributor = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab'
+
+
+// Policy to enforce storage account private endpoints creation towards internal subnet
+resource deployPESTAAssignment 'Microsoft.Authorization/policyAssignments@2021-06-01' = {
+  name: 'deployPESTAAssignment'
+  scope: subscription()
+  identity: {
+    type: 'SystemAssigned'
+  }
+  
+  location: deployment().location
+  properties: {
+      policyDefinitionId: deployPEStorageAccountDefinitionID
+      parameters: {
+          privateEndpointSubnetId: {
+            value: '/subscriptions/${subscription().id}/resourceGroups/${rg.name}/providers/Microsoft.Network/virtualNetworks/${vnetsandbox.outputs.vnetName}/subnets/${subnettarget}'
+          }
+      }
+   }
+  dependsOn: [
+    rg
+  ]
+}
+
+
+resource roleassignmentPE 'Microsoft.Authorization/roleAssignments@2020-08-01-preview' = {
+  name: StorageAccountContributorGuid
+  properties: {
+    principalId: deployPESTAAssignment.identity.principalId
+    roleDefinitionId: StorageAccountContributor
+    principalType:'ServicePrincipal'
+  }
+  dependsOn: [
+    rg
+  ]
+}
+
+resource roleassignmentPE2 'Microsoft.Authorization/roleAssignments@2020-08-01-preview' = {
+  name: NetworkContributorGuidPE
+  properties: {
+    principalId: deployPESTAAssignment.identity.principalId
+    roleDefinitionId: NetworkContributor
+    principalType:'ServicePrincipal'
+  }
+  dependsOn: [
+    rg
+  ]
+}
+
+
+// Policy to enforce that private endpoints connects to the correct private DNS zone
+resource deployCustomAssignment 'Microsoft.Authorization/policyAssignments@2021-06-01' = {
+  name: 'deployCustomAssignment'
+  scope: subscription()
+  identity: {
+    type: 'SystemAssigned'
+  }
+  location: deployment().location
+  properties: {
+      policyDefinitionId: policyDeploy.outputs.storageAccountDNSPolicyId
+      parameters: {
+          privateDnsZoneId: {
+            value: blobprivatelinkDNSZoneName
+          }
+      }
+   }
+  dependsOn: [
+    rg
+    policyDeploy
+  ]
+}
+
+
+resource roleassignmentCA 'Microsoft.Authorization/roleAssignments@2020-08-01-preview' = {
+  name: PDNSContributorGuid
+  properties: {
+    principalId: deployCustomAssignment.identity.principalId
+    roleDefinitionId: PDNSContributor
+    principalType:'ServicePrincipal'
+  }
+  dependsOn: [
+    rg
+  ]
+}
+
+
+resource roleassignmentCA2 'Microsoft.Authorization/roleAssignments@2020-08-01-preview' = {
+  name: NetworkContributorGuidCA
+  properties: {
+    principalId: deployCustomAssignment.identity.principalId
+    roleDefinitionId: NetworkContributor
+    principalType:'ServicePrincipal'
+  }
+  dependsOn: [
+    rg
+  ]
+}
+
+

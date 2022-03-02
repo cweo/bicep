@@ -1,3 +1,4 @@
+targetScope = 'subscription'
 param policyName string
 
 
@@ -115,3 +116,5 @@ resource storageaccountpDNSzone 'Microsoft.Authorization/policyDefinitions@2021-
     }
   }
 }
+
+output storageAccountDNSPolicyId string = storageaccountpDNSzone.id

@@ -296,7 +296,7 @@ resource deployPESTAAssignment 'Microsoft.Authorization/policyAssignments@2021-0
       policyDefinitionId: deployPEStorageAccountDefinitionID
       parameters: {
           privateEndpointSubnetId: {
-            value: '/subscriptions/${subscription().id}/resourceGroups/${rg.name}/providers/Microsoft.Network/virtualNetworks/${vnetsandbox.outputs.vnetName}/subnets/${subnettarget}'
+            value: vnetsandbox.outputs.vnetSubnets[1].id
           }
       }
    }
